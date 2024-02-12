@@ -11,7 +11,7 @@ pub struct Credentials {
 impl Credentials {
     pub fn basic_auth(&self) -> String {
         format!(
-            "Basic: {}",
+            "Basic {}",
             BASE64_STANDARD.encode(format!("riot:{}", self.token))
         )
     }
