@@ -25,5 +25,9 @@ pub enum Error {
     #[error("unable to read file")]
     Io(#[from] io::Error),
     #[error("unable to get path to lockfile")]
-    EnvPath(#[from] env::VarError),
+    LockfilePath(#[from] env::VarError),
+    #[error("unable to get install info from Riot API")]
+    InstallInfoReq(#[from] Box<ureq::Error>),
+    #[error("unable to get parse install info from Riot API")]
+    InstallInfoParse(io::Error),
 }

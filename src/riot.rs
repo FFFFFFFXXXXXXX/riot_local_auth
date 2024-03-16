@@ -1,15 +1,12 @@
 use crate::credentials::*;
 use crate::error::*;
-use std::{
-    fs,
-    path::Path,
-    thread,
-    time::{Duration, Instant},
-};
+use std::path::Path;
+use std::time::{Duration, Instant};
+use std::{env, fs, thread};
 
 pub fn try_get_credentials() -> Result<Credentials> {
     let lockfile =
-        Path::new(&std::env::var("LOCALAPPDATA")?).join("Riot Games/Riot Client/Config/lockfile");
+        Path::new(&env::var("LOCALAPPDATA")?).join("Riot Games/Riot Client/Config/lockfile");
     if lockfile.exists() {
         let lockfile_content = fs::read_to_string(&lockfile)?;
         // the lockfile gets created and then after a short time written to
@@ -36,7 +33,7 @@ fn get_credentials_interal(timeout: Option<Duration>) -> Result<Credentials> {
     while now.elapsed() < timeout {
         match try_get_credentials() {
             Err(Error::ApiNotRunning) => {}
-            result @ _ => return result,
+            result => return result,
         }
 
         thread::sleep(Duration::from_secs(1));
