@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 thiserror = "1.0.56"
-base64 = "0.22.0"
+base64 = "0.21.7"
 ureq = { version = "2.9.6", features = ["json", "tls"] }
-rustls = { version = "0.22.2", default-features = false }
+rustls = "0.22.2"
 rustls-pemfile = "2.1.1"
 serde = { version = "1.0.197", features = ["derive"] }
