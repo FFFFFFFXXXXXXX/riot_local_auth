@@ -1,10 +1,10 @@
 use std::path::PathBuf;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 use std::{fs, thread};
 
 use ureq::config::Config;
-use ureq::tls::{Certificate, RootCerts, TlsConfig};
+use ureq::tls::{Certificate, RootCerts, TlsConfig, TlsProvider};
 use ureq::{Agent, BodyReader};
 
 use crate::error::{Error, Result};
@@ -63,14 +63,19 @@ fn get_credentials_interal(timeout: Option<Duration>) -> Result<Credentials> {
 }
 
 fn create_ureq_agent() -> Agent {
+    let crypto_provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
+
     let cert = Certificate::from_pem(include_bytes!("../riotgames.pem").as_slice()).unwrap();
-    let client_config = TlsConfig::builder()
+    let tls_config = TlsConfig::builder()
+        .provider(TlsProvider::Rustls)
         .root_certs(RootCerts::new_with_certs(&[cert]))
+        .unversioned_rustls_crypto_provider(crypto_provider)
         .build();
+
     ureq::Agent::new_with_config(
         Config::builder()
             .https_only(true)
-            .tls_config(client_config)
+            .tls_config(tls_config)
             .timeout_global(Some(Duration::from_millis(250)))
             .build(),
     )
