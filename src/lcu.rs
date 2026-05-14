@@ -3,9 +3,9 @@ use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 use std::{fs, thread};
 
-use rustls::{ClientConfig, RootCertStore};
-use rustls_pemfile::Item;
-use ureq::Agent;
+use ureq::config::Config;
+use ureq::tls::{Certificate, RootCerts, TlsConfig};
+use ureq::{Agent, BodyReader};
 
 use crate::error::{Error, Result};
 use crate::{riot, Credentials};
@@ -21,8 +21,7 @@ pub fn try_get_credentials() -> Result<Credentials> {
             "https://127.0.0.1:{}/patch/v1/installs/league_of_legends.live",
             riot_credentials.port,
         ))
-        .set("Authorization", &riot_credentials.basic_auth())
-        .timeout(Duration::from_millis(250));
+        .header("Authorization", &riot_credentials.basic_auth());
 
     #[derive(serde::Deserialize)]
     struct InstallInfo {
@@ -30,10 +29,10 @@ pub fn try_get_credentials() -> Result<Credentials> {
     }
 
     let response = request.call().map_err(Box::new)?;
-    let install_path = response
-        .into_json::<InstallInfo>()
-        .map(|install_info| install_info.path)
-        .map_err(Error::InstallInfoParse)?;
+    let install_path =
+        serde_json::from_reader::<BodyReader, InstallInfo>(response.into_body().into_reader())
+            .map(|install_info| install_info.path)
+            .map_err(Error::InstallInfoParse)?;
 
     let lockfile_content = fs::read_to_string(install_path.join("lockfile"))?;
     Credentials::try_from(lockfile_content)
@@ -64,24 +63,15 @@ fn get_credentials_interal(timeout: Option<Duration>) -> Result<Credentials> {
 }
 
 fn create_ureq_agent() -> Agent {
-    let (cert, _) =
-        rustls_pemfile::read_one_from_slice(include_bytes!("../riotgames.pem").as_slice())
-            .unwrap()
-            .unwrap();
-
-    let mut cert_store = RootCertStore::empty();
-    match cert {
-        Item::X509Certificate(cert) => cert_store.add(cert).unwrap(),
-        _ => unreachable!("wrong riotgames.pem file / cert format"),
-    }
-
-    let client_config = ClientConfig::builder()
-        .with_root_certificates(cert_store)
-        .with_no_client_auth()
-        .into();
-
-    ureq::AgentBuilder::new()
-        .https_only(true)
-        .tls_config(client_config)
-        .build()
+    let cert = Certificate::from_pem(include_bytes!("../riotgames.pem").as_slice()).unwrap();
+    let client_config = TlsConfig::builder()
+        .root_certs(RootCerts::new_with_certs(&[cert]))
+        .build();
+    ureq::Agent::new_with_config(
+        Config::builder()
+            .https_only(true)
+            .tls_config(client_config)
+            .timeout_global(Some(Duration::from_millis(250)))
+            .build(),
+    )
 }

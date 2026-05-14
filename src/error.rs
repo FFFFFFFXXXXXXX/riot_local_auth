@@ -29,5 +29,5 @@ pub enum Error {
     #[error("unable to get install info from Riot API")]
     InstallInfoReq(#[from] Box<ureq::Error>),
     #[error("unable to get parse install info from Riot API")]
-    InstallInfoParse(io::Error),
+    InstallInfoParse(serde_json::Error),
 }
