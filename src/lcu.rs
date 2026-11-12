@@ -18,20 +18,25 @@ pub fn try_get_credentials() -> Result<Credentials> {
     let ureq_agent = UREQ_AGENT.get_or_init(create_ureq_agent);
     let request = ureq_agent
         .get(&format!(
-            "https://127.0.0.1:{}/patch/v1/installs/league_of_legends.live",
+            "https://127.0.0.1:{}/rnet-product-registry/v4/products/league_of_legends/patchlines/live",
             riot_credentials.port,
         ))
         .header("Authorization", &riot_credentials.basic_auth());
 
     #[derive(serde::Deserialize)]
     struct InstallInfo {
-        path: PathBuf,
+        patchline: Patchline,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct Patchline {
+        install_full_path: PathBuf,
     }
 
     let response = request.call().map_err(Box::new)?;
     let install_path =
         serde_json::from_reader::<BodyReader, InstallInfo>(response.into_body().into_reader())
-            .map(|install_info| install_info.path)
+            .map(|install_info| install_info.patchline.install_full_path)
             .map_err(Error::InstallInfoParse)?;
 
     let lockfile_content = fs::read_to_string(install_path.join("lockfile"))?;
